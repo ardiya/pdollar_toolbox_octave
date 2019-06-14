@@ -77,6 +77,7 @@ dfs={'type','local','pLaunch',[],'group',1};
 if(isempty(jobs)), res=cell(1,0); out=1; return; end
 switch lower(type)
   case 'local',     [out,res]=fedLocal(funNm,jobs,store);
+  case 'parcellfun',    [out,res]=fedParcellfun(funNm,jobs,store);
   case 'parfor',    [out,res]=fedParfor(funNm,jobs,store);
   case 'distr',     [out,res]=fedDistr(funNm,jobs,pLaunch,group,store);
   case 'compiled',  [out,res]=fedCompiled(funNm,jobs,store);
@@ -91,6 +92,32 @@ nJob=length(jobs); res=cell(1,nJob); out=1;
 tid=ticStatus('collecting jobs');
 for i=1:nJob, r=feval(funNm,jobs{i}{:});
   if(store), res{i}=r; end; tocStatus(tid,i/nJob); end
+end
+
+% getPrms assumes first is E, second is G,
+% then return the 3th:10th of varargin as cell
+function out = getPrms(varargin)
+  n = length(varargin);
+  out = cell(1, n);
+  for i = 1:n
+    arg = varargin{i};
+    inner = cell(1, 8);
+    for j = 1:8
+      inner(j) = arg{j+2};
+    end %for
+    out{i} = inner;
+  end %for
+end %function
+
+function [out,res] = fedParcellfun( funNm, jobs, store )
+  % Run jobs locally using parcellfun.
+  nJob=length(jobs); res=cell(1,nJob); out=1;
+  Es = cellfun(@(x) x(1), jobs); % paths to the edge image
+  Gs = cellfun(@(x) x(2), jobs); % paths to the ground truth
+  prms = getPrms(jobs{:});       % extra params
+  fprintf("[Warning] This parcellfun will take a long time to compute!!\n");
+  parcellfun(nproc - 1, funNm, Es, Gs, prms);
+  % TODO: if(store) save to res
 end
 
 function [out,res] = fedParfor( funNm, jobs, store )
